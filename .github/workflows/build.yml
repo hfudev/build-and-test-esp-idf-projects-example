@@ -1,10 +1,24 @@
-on: pull_request
+name: "Build Examples in PR"
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:release-v5.4
+    strategy:
+      matrix:
+        parallel_index: [1, 2, 3]
+        parallel_count: [3]
     steps:
-      - name: Build ESP-IDF Project
-        uses: hfudev/build-esp-idf-projects-action@master
+      - uses: hfudev/build-esp-idf-projects-action@master
+        with:
+          paths: examples
+          parallel_index: ${{ matrix.parallel_index }}
+          parallel_count: ${{ matrix.parallel_count }}

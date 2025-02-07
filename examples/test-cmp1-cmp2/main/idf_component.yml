@@ -1,5 +1,5 @@
 dependencies:
   cmp1:
-    path: ../../../cmp1
+    path: ../../../components/cmp1
   cmp2:
-    path: ../../../cmp2
+    path: ../../../components/cmp2
