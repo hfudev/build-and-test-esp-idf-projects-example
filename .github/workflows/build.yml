@@ -1,4 +1,8 @@
-on: pull_request
+name: "Build Examples"
+
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
@@ -6,5 +10,6 @@ jobs:
     container:
       image: espressif/idf:release-v5.4
     steps:
-      - name: Build ESP-IDF Project
-        uses: hfudev/build-esp-idf-projects-action@master
+      - uses: hfudev/build-esp-idf-projects-action@master
+        with:
+          paths: examples
