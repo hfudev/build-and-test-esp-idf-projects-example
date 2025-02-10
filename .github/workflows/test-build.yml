@@ -1,0 +1,56 @@
+name: "Build Examples in PR"
+
+on:
+  pull_request:
+  repository_dispatch:
+    types: [build-examples]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-with-cmp1-modified:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v5.4
+    steps:
+      - uses: hfudev/build-esp-idf-projects-action@master
+        with:
+          paths: examples
+          target: esp32
+          modified_files: "components/cmp1/cmp1.c;"
+          artifact_name: test1
+      - uses: actions/download-artifact@v4
+        with:
+          path: .
+      - name: Display structure of downloaded files
+        run: ls -R
+      - name: check cmp2 project skipped
+        run: |
+          apt update && apt install -y jq
+          [ "$(grep 'test-cmp1"' app_info_1.txt | jq -r .build_status)" = "build success" ]
+          [ "$(grep 'test-cmp1-cmp2"' app_info_1.txt | jq -r .build_status)" = "build success" ]
+          [ "$(grep 'test-cmp2"' app_info_1.txt | jq -r .build_status)" = "skipped" ]
+  build-with-cmp2-modified:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v5.4
+    steps:
+      - uses: hfudev/build-esp-idf-projects-action@master
+        with:
+          paths: examples
+          target: esp32
+          modified_files: "components/cmp2/cmp2.c;"
+          artifact_name: test2
+      - uses: actions/download-artifact@v4
+        with:
+          path: .
+      - name: Display structure of downloaded files
+        run: ls -R
+      - name: check cmp2 project skipped
+        run: |
+          apt update && apt install -y jq
+          [ "$(grep 'test-cmp1"' app_info_1.txt | jq -r .build_status)" = "skipped" ]
+          [ "$(grep 'test-cmp1-cmp2"' app_info_1.txt | jq -r .build_status)" = "build success" ]
+          [ "$(grep 'test-cmp2"' app_info_1.txt | jq -r .build_status)" = "build success" ]
