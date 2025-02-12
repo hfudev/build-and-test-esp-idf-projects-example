@@ -11,29 +11,31 @@ concurrency:
 
 jobs:
   build-examples:
-    runs-on: ubuntu-latest
-    container:
-      image: espressif/idf:release-v5.4
     strategy:
       matrix:
         include:
-          - paths: "examples;examples/test-cmp1"
+          - name: "modified cmp1"
+            paths: "examples;examples/test-cmp1"
             modified_files: "components/cmp1/cmp1.c;"
-            artifact_name: test1
+            artifact_name: app_binaries_modify_cmp1
             expected_results: |
               [ "$(grep -c '^{' app_info_1.txt)" -eq 3 ]
               [ "$(grep 'test-cmp1"' app_info_1.txt | jq -r .build_status)" = "build success" ]
               [ "$(grep 'test-cmp1-cmp2"' app_info_1.txt | jq -r .build_status)" = "build success" ]
               [ "$(grep 'test-cmp2"' app_info_1.txt | jq -r .build_status)" = "skipped" ]
-          - paths: "examples;examples/test-cmp2"
+          - name: "modified cmp2"
+            paths: "examples;examples/test-cmp2"
             modified_files: "components/cmp2/cmp2.c;"
-            artifact_name: test2
+            artifact_name: app_binaries_modify_cmp2
             expected_results: |
               [ "$(grep -c '^{' app_info_1.txt)" -eq 3 ]
               [ "$(grep 'test-cmp1"' app_info_1.txt | jq -r .build_status)" = "skipped" ]
               [ "$(grep 'test-cmp1-cmp2"' app_info_1.txt | jq -r .build_status)" = "build success" ]
               [ "$(grep 'test-cmp2"' app_info_1.txt | jq -r .build_status)" = "build success" ]
-    name: ${{ matrix.artifact_name }}
+    name: build - ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v5.4
     steps:
       - uses: hfudev/build-esp-idf-projects-action@v1
         with:
@@ -48,3 +50,45 @@ jobs:
         run: |
           apt update && apt install -y jq
           ${{ matrix.expected_results }}
+
+  test-examples:
+    needs: build-examples
+    strategy:
+      matrix:
+        include:
+          - name: modified cmp1
+            target: esp32
+            marker: generic
+            need_artifact: app_binaries_modify_cmp1
+          - name: modified cmp2
+            target: esp32
+            marker: generic
+            need_artifact: app_binaries_modify_cmp2
+    name: test - ${{ matrix.name }}
+    runs-on:
+      - self-hosted
+      - ${{ matrix.target }}
+      # - ${{ matrix.marker }} # our GH runners don't support this
+    container:
+      image: python:3
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          pip install -U idf-ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.need_artifact }}
+      - name: Test ESP-IDF Projects
+        shell: bash
+        run: |
+          pytest -m ${{ matrix.marker }} \
+            --target ${{ matrix.target }} \
+            --log-cli-level DEBUG \
+            --junitxml report.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.name }}
+          path: report.xml
